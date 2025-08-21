@@ -1,8 +1,8 @@
 # n8n-nodes-documentero
 
-An n8n community node that integrates the **Documentero API** into your workflows.
+An n8n community node that integrates the **Documentero API - Document Generation** into your workflows.
 
-[Documentero – Document Generation](https://documentero.com) is a cloud-based document generation service. Generate Word, Excel, and PDF documents from .docx/.xlsx templates via API. Templates support dynamic fields, tables, formulas, conditional sections, images, HTML, Markdown, and QR codes.
+[Documentero – Document Generation](https://documentero.com) is a cloud-based document generation service. Generate Word, Excel, and PDF documents from ****.docx/.xlsx templates** via API. Templates support dynamic fields, tables, formulas, conditional sections, images, HTML, Markdown, and QR codes.
 
 [n8n](https://n8n.io/) is a [fair-code licensed](https://docs.n8n.io/reference/license/) workflow automation platform.
 
@@ -23,12 +23,12 @@ Follow the [installation guide](https://docs.n8n.io/integrations/community-nodes
 
 Supported operations:
 
-- Generate Document — Populate a .xlsx or .docx template and generate a document.
-- Generate and Email Document — Populate a .xlsx or .docx template and send the generated document as an email attachment.
+- **Generate Document** — Populate a .xlsx or .docx template and generate a document.
+- **Generate and Email Document** — Populate a .xlsx or .docx template and send the generated document as an email attachment.
 
 Response fields:
 
-- data (binary) — The generated document as a binary file (.docx / .pdf / .xlsx). JSON metadata from the API response is returned alongside the binary; base64 content is removed.
+- **data (binary)** — The generated document as a binary file (.docx / .pdf / .xlsx). JSON metadata from the API response is returned alongside the binary; base64 content is removed.
 
 ## Credentials
 
@@ -64,11 +64,9 @@ Obtain your API key for Documentero:
 	![Documentero Template Overview](assets/documenterodef.png)
 
 - Run the workflow.
-- The node outputs the generated file under binary > data for downstream processing (.docx / .pdf / .xlsx).
+- The node outputs the generated file under binary > data for further processing (.docx / .pdf / .xlsx).
 
 	![Documentero Flow](assets/n8nnodesample.png)
-
-If images don’t load on npm, ensure assets are included in the published package (see the package.json files section) or use raw GitHub URLs.
 
 ## Resources
 
