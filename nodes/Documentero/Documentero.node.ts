@@ -30,7 +30,7 @@ export class Documentero implements INodeType {
                 default: 'generate',
             },
             {
-                displayName: 'Template Name or ID',
+                displayName: 'Document Template Name or ID',
                 name: 'document',
                 type: 'options',
                 noDataExpression: true,
@@ -76,13 +76,12 @@ export class Documentero implements INodeType {
     methods = {
         loadOptions: {
             async loadTemplates(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
-                const cred = (await this.getCredentials('documenteroApi')) as { apiKey: string };
                 let res: any;
                 try {
-                    res = await (this as any).helpers.httpRequest({
+                    res = await this.helpers.httpRequestWithAuthentication.call(this, 'documenteroApi', {
                         method: 'GET',
-                        url: `https://app.documentero.com/api/templates`,
-                        headers: { Authorization: cred.apiKey, types: true },
+                        url: 'https://app.documentero.com/api/templates',
+                        qs: { types: true },
                         json: true,
                     });
                 } catch (err) {
@@ -99,8 +98,8 @@ export class Documentero implements INodeType {
     async execute(this: IExecuteFunctions) {
         const items = this.getInputData();
         const returnData: INodeExecutionData[] = [];
-        const cred = (await this.getCredentials('documenteroApi')) as { apiKey: string };
-        // No schema auto-population; users provide JSON manually
+    // Credentials handled via httpRequestWithAuthentication
+    // No schema auto-population; users provide JSON manually
 
         for (let i = 0; i < items.length; i++) {
             const operation = this.getNodeParameter('operation', i) as string;
@@ -132,10 +131,10 @@ export class Documentero implements INodeType {
 
             let res: any;
             try {
-                res = await this.helpers.httpRequest({
+                res = await this.helpers.httpRequestWithAuthentication.call(this, 'documenteroApi', {
                     method: 'POST',
-                    url: `https://app.documentero.com/api`,
-                    headers: { Authorization: cred.apiKey, embed: 'true' },
+                    url: 'https://app.documentero.com/api',
+                    headers: { embed: 'true' },
                     body,
                     json: true,
                 });
@@ -162,8 +161,10 @@ export class Documentero implements INodeType {
                     delete (item.json as any).data.fileContent;
                 }
             }
-
-            returnData.push(item);
+            returnData.push({
+                ...item,
+                pairedItem: { item: i },
+            });
         }
 
         return [returnData];
