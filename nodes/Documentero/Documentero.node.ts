@@ -102,69 +102,82 @@ export class Documentero implements INodeType {
     // No schema auto-population; users provide JSON manually
 
         for (let i = 0; i < items.length; i++) {
-            const operation = this.getNodeParameter('operation', i) as string;
-            const document = this.getNodeParameter('document', i) as string;
-            const dataSource = this.getNodeParameter('dataSource', i) as string;
-            let data: Record<string, any>;
-            if (dataSource === 'json') {
-                data = this.getNodeParameter('dataJson', i, {}) as Record<string, any>;
-                // If the JSON editor value came through as a string, attempt to parse it
-                if (typeof (data as unknown) === 'string') {
-                    const raw = data as unknown as string;
-                    data = raw.trim() === '' ? {} : (JSON.parse(raw) as Record<string, any>);
-                }
-            } else {
-                // use input item json
-                data = items[i].json as Record<string, any>;
-            }
-
-            const body: Record<string, any> = { document, data };
-            if (operation === 'generateAndEmail') {
-                body.email = this.getNodeParameter('email', i) as string;
-                body.emailSubject = this.getNodeParameter('emailSubject', i, '') as string;
-                body.emailMessage = this.getNodeParameter('emailMessage', i, '') as string;
-                body.emailFooter = this.getNodeParameter('emailFooter', i, '') as string;
-                body.emailSender = this.getNodeParameter('emailSender', i, '') as string;
-                body.emailCC = this.getNodeParameter('emailCC', i, '') as string;
-                body.emailBCC = this.getNodeParameter('emailBCC', i, '') as string;
-            }
-
-            let res: any;
             try {
-                res = await this.helpers.httpRequestWithAuthentication.call(this, 'documenteroApi', {
-                    method: 'POST',
-                    url: 'https://app.documentero.com/api',
-                    headers: { embed: 'true' },
-                    body,
-                    json: true,
+                const operation = this.getNodeParameter('operation', i) as string;
+                const document = this.getNodeParameter('document', i) as string;
+                const dataSource = this.getNodeParameter('dataSource', i) as string;
+                let data: Record<string, any>;
+                if (dataSource === 'json') {
+                    data = this.getNodeParameter('dataJson', i, {}) as Record<string, any>;
+                    if (typeof (data as unknown) === 'string') {
+                        const raw = data as unknown as string;
+                        data = raw.trim() === '' ? {} : (JSON.parse(raw) as Record<string, any>);
+                    }
+                } else {
+                    data = items[i].json as Record<string, any>;
+                }
+
+                const body: Record<string, any> = { document, data };
+                if (operation === 'generateAndEmail') {
+                    body.email = this.getNodeParameter('email', i) as string;
+                    body.emailSubject = this.getNodeParameter('emailSubject', i, '') as string;
+                    body.emailMessage = this.getNodeParameter('emailMessage', i, '') as string;
+                    body.emailFooter = this.getNodeParameter('emailFooter', i, '') as string;
+                    body.emailSender = this.getNodeParameter('emailSender', i, '') as string;
+                    body.emailCC = this.getNodeParameter('emailCC', i, '') as string;
+                    body.emailBCC = this.getNodeParameter('emailBCC', i, '') as string;
+                }
+
+                let res: any;
+                try {
+                    res = await this.helpers.httpRequestWithAuthentication.call(this, 'documenteroApi', {
+                        method: 'POST',
+                        url: 'https://app.documentero.com/api',
+                        headers: { embed: 'true' },
+                        body,
+                        json: true,
+                    });
+                } catch (err) {
+                    if (this.continueOnFail()) {
+                        returnData.push({
+                            json: { error: formatApiError(err, 'Document generation failed') },
+                            pairedItem: { item: i },
+                        });
+                        continue;
+                    }
+                    const msg = formatApiError(err, 'Document generation failed');
+                    throw new NodeOperationError(this.getNode(), msg);
+                }
+
+                let item: INodeExecutionData = { json: (res as unknown) as IDataObject };
+                const genData = (res as any)?.data;
+                if (genData?.fileContent) {
+                    const buffer = (globalThis as any).Buffer.from(genData.fileContent as string, 'base64');
+                    const binaryPropertyName = 'data';
+                    item.binary = item.binary ?? {};
+                    item.binary[binaryPropertyName] = await this.helpers.prepareBinaryData(
+                        buffer,
+                        (genData.fileName as string) || 'document',
+                        (genData.contentType as string) || 'application/octet-stream',
+                    );
+                    if (item.json && (item.json as any).data) {
+                        delete (item.json as any).data.fileContent;
+                    }
+                }
+                returnData.push({
+                    ...item,
+                    pairedItem: { item: i },
                 });
             } catch (err) {
-                const msg = formatApiError(err, 'Document generation failed');
-                throw new NodeOperationError(this.getNode(), msg);
-            }
-
-            let item: INodeExecutionData = { json: (res as unknown) as IDataObject };
-
-            // Convert base64 to binary by default
-            const genData = (res as any)?.data;
-            if (genData?.fileContent) {
-                const buffer = (globalThis as any).Buffer.from(genData.fileContent as string, 'base64');
-                const binaryPropertyName = 'data';
-                item.binary = item.binary ?? {};
-                item.binary[binaryPropertyName] = await this.helpers.prepareBinaryData(
-                    buffer,
-                    (genData.fileName as string) || 'document',
-                    (genData.contentType as string) || 'application/octet-stream',
-                );
-                // Keep JSON metadata without base64 content
-                if (item.json && (item.json as any).data) {
-                    delete (item.json as any).data.fileContent;
+                if (this.continueOnFail()) {
+                    returnData.push({
+                        json: { error: (err as Error).message },
+                        pairedItem: { item: i },
+                    });
+                    continue;
                 }
+                throw err;
             }
-            returnData.push({
-                ...item,
-                pairedItem: { item: i },
-            });
         }
 
         return [returnData];
