@@ -152,9 +152,10 @@ export class Documentero implements INodeType {
                 let item: INodeExecutionData = { json: (res as unknown) as IDataObject };
                 const genData = (res as any)?.data;
                 if (genData?.fileContent) {
-                    const buffer = (globalThis as any).Buffer.from(genData.fileContent as string, 'base64');
+                    const base64 = genData.fileContent as string;
                     const binaryPropertyName = 'data';
                     item.binary = item.binary ?? {};
+                    const buffer = Buffer.from(base64, 'base64');
                     item.binary[binaryPropertyName] = await this.helpers.prepareBinaryData(
                         buffer,
                         (genData.fileName as string) || 'document',
