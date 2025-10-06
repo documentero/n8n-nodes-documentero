@@ -108,11 +108,8 @@ export class Documentero implements INodeType {
                 const dataSource = this.getNodeParameter('dataSource', i) as string;
                 let data: Record<string, any>;
                 if (dataSource === 'json') {
-                    data = this.getNodeParameter('dataJson', i, {}) as Record<string, any>;
-                    if (typeof (data as unknown) === 'string') {
-                        const raw = data as unknown as string;
-                        data = raw.trim() === '' ? {} : (JSON.parse(raw) as Record<string, any>);
-                    }
+                    const param = this.getNodeParameter('dataJson', i, {}) as unknown;
+                    data = safeParseJSON(param);
                 } else {
                     data = items[i].json as Record<string, any>;
                 }
@@ -156,9 +153,10 @@ export class Documentero implements INodeType {
                     const binaryPropertyName = 'data';
                     item.binary = item.binary ?? {};
                     const buffer = Buffer.from(base64, 'base64');
+                    const safeFileName = String((genData.fileName as string) || 'document').replace(/[\/\\]/g, '-');
                     item.binary[binaryPropertyName] = await this.helpers.prepareBinaryData(
                         buffer,
-                        (genData.fileName as string) || 'document',
+                        safeFileName,
                         (genData.contentType as string) || 'application/octet-stream',
                     );
                     if (item.json && (item.json as any).data) {
@@ -210,4 +208,40 @@ function formatApiError(err: any, context: string) {
     const message = body?.message ?? err?.message ?? 'Request failed';
     const suffix = status ? ` (status ${status})` : '';
     return `${context}: ${message}${suffix}`;
+}
+
+// Best-effort coercion of a node parameter (object or JSON string) to a plain object.
+// Handles common pitfalls when expressions inject unescaped quotes/newlines into JSON editor.
+export function safeParseJSON(input: unknown): Record<string, any> {
+    if (input == null) return {};
+    if (typeof input === 'object') return input as Record<string, any>;
+    if (typeof input !== 'string') return {};
+
+    const raw = input.trim();
+    if (!raw) return {};
+
+    try { return JSON.parse(raw) as Record<string, any>; } catch {}
+    try { return JSON.parse(sanitizeJsonValueStrings(raw)) as Record<string, any>; } catch {}
+    throw new Error('Invalid JSON in Data (JSON). Use "From Input Item JSON" or ensure values are escaped.');
+}
+
+// Attempts to repair a JSON string where string values may contain unescaped quotes/newlines.
+// Heuristic: when inside a value string (after a colon), escape inner quotes that are not the closing quote,
+// and normalize raw newlines/tabs to their escaped forms. Leaves key strings untouched.
+export function sanitizeJsonValueStrings(s: string): string {
+    let out = '', i = 0, inStr = false, valStr = false, esc = false; let last = '';
+    const isWs = (c: string) => c === ' ' || c === '\n' || c === '\r' || c === '\t';
+    while (i < s.length) {
+        const ch = s[i];
+        if (!inStr) {
+            if (ch === '"') { inStr = true; valStr = (last === ':' || last === '[' || last === ','); out += ch; i++; continue; }
+            if (!isWs(ch)) last = ch; out += ch; i++; continue;
+        }
+        if (esc) { out += ch; esc = false; i++; continue; }
+        if (ch === '\\') { out += ch; esc = true; i++; continue; }
+        if (ch === '"') { let j = i + 1; while (j < s.length && isWs(s[j])) j++; const next = j < s.length ? s[j] : ''; const closing = !valStr || next === ',' || next === '}' || next === ']'; if (closing) { inStr = false; valStr = false; out += ch; i++; continue; } out += '\\"'; i++; continue; }
+        if (valStr) { if (ch === '\n') { out += '\\n'; i++; continue; } if (ch === '\r') { out += '\\r'; i++; continue; } if (ch === '\t') { out += '\\t'; i++; continue; } }
+        out += ch; i++;
+    }
+    return out;
 }
