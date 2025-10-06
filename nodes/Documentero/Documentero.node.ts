@@ -1,6 +1,6 @@
 import type { INodeType, INodeTypeDescription } from 'n8n-workflow';
 import type { IExecuteFunctions, INodeExecutionData, INodePropertyOptions, ILoadOptionsFunctions, IDataObject } from 'n8n-workflow';
-import { NodeApiError, NodeOperationError } from 'n8n-workflow';
+import { ApplicationError, NodeApiError, NodeOperationError } from 'n8n-workflow';
 import { NodeConnectionType } from 'n8n-workflow';
 
 export class Documentero implements INodeType {
@@ -98,8 +98,8 @@ export class Documentero implements INodeType {
     async execute(this: IExecuteFunctions) {
         const items = this.getInputData();
         const returnData: INodeExecutionData[] = [];
-    // Credentials handled via httpRequestWithAuthentication
-    // No schema auto-population; users provide JSON manually
+        // Credentials handled via httpRequestWithAuthentication
+        // No schema auto-population; users provide JSON manually
 
         for (let i = 0; i < items.length; i++) {
             try {
@@ -222,7 +222,7 @@ export function safeParseJSON(input: unknown): Record<string, any> {
 
     try { return JSON.parse(raw) as Record<string, any>; } catch {}
     try { return JSON.parse(sanitizeJsonValueStrings(raw)) as Record<string, any>; } catch {}
-    throw new Error('Invalid JSON in Data (JSON). Use "From Input Item JSON" or ensure values are escaped.');
+    throw new ApplicationError('Invalid JSON in Data (JSON). Use "From Input Item JSON" or ensure values are escaped.');
 }
 
 // Attempts to repair a JSON string where string values may contain unescaped quotes/newlines.
